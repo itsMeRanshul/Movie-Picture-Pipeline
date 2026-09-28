@@ -1,0 +1,70 @@
+name: Backend CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "starter/backend/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: starter/backend
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: pip install pipenv
+      - run: pipenv install --dev
+      - run: pipenv run lint
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: pip install pipenv
+      - run: pipenv install --dev
+      - run: pipenv run test
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build --tag=mp-backend:${{ github.sha }} .
+
+  notify-failure:
+    runs-on: ubuntu-latest
+    needs: [lint, test, build]
+    if: failure()
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Report failure
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          MSG="Backend CI failed: ${{ github.repository }} @ ${{ github.sha }} - ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "::error::$MSG"
+          echo "### :x: $MSG" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            curl -sS -X POST -H 'Content-type: application/json' \
+              --data "{\"text\":\"$MSG\"}" "$SLACK_WEBHOOK_URL"
+          fi
