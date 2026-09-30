@@ -20,7 +20,7 @@ env:
   # ECR repository name for the frontend (see `terraform output`)
   ECR_REPOSITORY: frontend
   # URL of the deployed backend (e.g. its LoadBalancer hostname), stored as a repo variable
-  REACT_APP_MOVIE_API_URL: ${{ secrets.REACT_APP_MOVIE_API_URL || 'http://localhost:5000' }}
+  REACT_APP_MOVIE_API_URL: ${{ vars.REACT_APP_MOVIE_API_URL || 'http://localhost:5000' }}
 
 jobs:
   lint:
